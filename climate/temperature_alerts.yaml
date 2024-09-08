@@ -50,7 +50,7 @@ action:
     wait_for_trigger:
       - platform: numeric_state
         entity_id: !input temperature_sensor
-        below: "{{ states('sensor.' + temperature_sensor.entity_id.split('.')[1]) | float - 0.5 }}"
+        below: "{{ (states(temperature_sensor) | float) - 0.5 }}"
     timeout: 
       minutes: !input delay_between_notifications
     continue_on_timeout: false
