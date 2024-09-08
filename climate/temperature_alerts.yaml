@@ -1,15 +1,16 @@
 blueprint:
-  name: Temperature Drop Notification
-  description: Sends a notification when the temperature drops below a specified threshold, and repeats only if the temperature continues to drop after a set time.
+  name: Temperature Drop Notification (Multiple Sensors - Persistent)
+  description: Sends a persistent notification when any of the selected temperature sensors drop below a specified threshold, and repeats only if the temperature continues to drop after a set time.
   domain: automation
   input:
-    temperature_sensor:
-      name: Temperature Sensor
-      description: The sensor that monitors the temperature.
+    temperature_sensors:
+      name: Temperature Sensors
+      description: Select one or more temperature sensors to monitor.
       selector:
-        entity:
-          domain: sensor
-          device_class: temperature
+        target:
+          entity:
+            domain: sensor
+            device_class: temperature
     temperature_threshold:
       name: Temperature Threshold
       description: Minimum temperature below which a notification will be sent.
@@ -21,7 +22,7 @@ blueprint:
           unit_of_measurement: °C
     notification_message:
       name: Notification Message
-      description: The message that will be sent when the temperature drops below the threshold.
+      description: The base message that will be sent when the temperature drops below the threshold. Sensor name and current temperature will be added automatically.
       default: "Warning! Temperature has dropped below the threshold."
       selector:
         text:
@@ -36,26 +37,49 @@ blueprint:
           unit_of_measurement: minutes
 
 trigger:
-  - platform: numeric_state
-    entity_id: !input temperature_sensor
-    below: !input temperature_threshold
+  - platform: template
+    value_template: >
+      {% for entity in expand(target_entities.temperature_sensors) %}
+        {% if entity.state | float < temperature_threshold %}
+          true
+        {% endif %}
+      {% endfor %}
+
+variables:
+  temperature_sensors: !input temperature_sensors
+  temperature_threshold: !input temperature_threshold
+  notification_message: !input notification_message
+  delay_between_notifications: !input delay_between_notifications
 
 action:
-  - alias: "Send Temperature Drop Notification"
-    service: notify.notify
-    data:
-      message: !input notification_message
-
-  - alias: "Check if Temperature Continues to Drop"
-    wait_for_trigger:
-      - platform: numeric_state
-        entity_id: !input temperature_sensor
-        below: "{{ (states(temperature_sensor) | float) - 0.5 }}"
-    timeout: 
-      minutes: !input delay_between_notifications
-    continue_on_timeout: false
-
-  - alias: "Send Follow-up Notification"
-    service: notify.notify
-    data:
-      message: "Temperature continues to drop: {{ states(temperature_sensor) }}°C"
+  - alias: "Send Temperature Drop Persistent Notification"
+    repeat:
+      while: >
+        {% for entity in expand(target_entities.temperature_sensors) %}
+          {% if entity.state | float < temperature_threshold %}
+            true
+          {% endif %}
+        {% endfor %}
+      sequence:
+        - alias: "Send Notification for Each Sensor"
+          service: persistent_notification.create
+          data:
+            title: "Temperature Drop Alert"
+            message: >
+              {% for entity in expand(target_entities.temperature_sensors) %}
+                {% if entity.state | float < temperature_threshold %}
+                  Sensor {{ entity.name }}: {{ entity.state }}°C. {{ notification_message }}
+                {% endif %}
+              {% endfor %}
+        - alias: "Wait for Temperature Drop"
+          wait_for_trigger:
+            - platform: template
+              value_template: >
+                {% for entity in expand(target_entities.temperature_sensors) %}
+                  {% if entity.state | float < temperature_threshold - 0.5 %}
+                    true
+                  {% endif %}
+                {% endfor %}
+          timeout:
+            minutes: !input delay_between_notifications
+          continue_on_timeout: false
