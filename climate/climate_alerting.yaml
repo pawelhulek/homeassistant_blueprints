@@ -1,0 +1,125 @@
+blueprint:
+  name: Temperature-based Window Control with Multiple Sensors
+  description: Sends a notification to open or close windows based on inside and outside temperatures, and only notifies again if temperature changes by 0.5°C or more.
+  domain: automation
+  input:
+    inside_temp_sensor:
+      name: Inside Temperature Sensor
+      description: The temperature sensor inside the room.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+    outside_temp_sensor:
+      name: Outside Temperature Sensor
+      description: The temperature sensor outside.
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+    window_sensors:
+      name: Window Open/Close Sensors
+      description: List of window sensors to check if windows are open or closed.
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class: window
+          multiple: true
+    notify_device:
+      name: Device to Notify
+      description: Device to send the notification to.
+      selector:
+        device:
+          integration: mobile_app
+    temp_difference_threshold:
+      name: Temperature Difference Threshold
+      description: Minimum temperature difference between inside and outside to trigger action.
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 10
+          unit_of_measurement: °C
+          step: 0.5
+    preferred_inside_temp:
+      name: Preferred Inside Temperature
+      description: The ideal inside temperature.
+      default: 22
+      selector:
+        number:
+          min: 10
+          max: 30
+          unit_of_measurement: °C
+          step: 0.5
+
+variables:
+  last_notification_temp: 0
+
+trigger:
+  - platform: state
+    entity_id: !input 'inside_temp_sensor'
+  - platform: state
+    entity_id: !input 'outside_temp_sensor'
+
+condition:
+  - condition: template
+    value_template: >
+      {% set inside_temp = states('sensor.' ~ (input('inside_temp_sensor')).split('.')[1]) | float %}
+      {% set outside_temp = states('sensor.' ~ (input('outside_temp_sensor')).split('.')[1]) | float %}
+      {% set preferred_temp = input('preferred_inside_temp') | float %}
+      {% set threshold = input('temp_difference_threshold') | float %}
+
+      {% set temp_diff = (inside_temp - states('input_number.last_notification_temp') | float) | abs %}
+      {% set notify_threshold = 0.5 %}
+
+      temp_diff >= notify_threshold and (
+        (inside_temp > preferred_temp + threshold and is_state('last_action', 'close_window')) or 
+        (inside_temp < preferred_temp - threshold and is_state('last_action', 'open_window'))
+      )
+
+action:
+  - variables:
+      inside_temp: "{{ states('sensor.' ~ (input('inside_temp_sensor')).split('.')[1]) | float }}"
+      outside_temp: "{{ states('sensor.' ~ (input('outside_temp_sensor')).split('.')[1]) | float }}"
+      preferred_temp: "{{ input('preferred_inside_temp') | float }}"
+      threshold: "{{ input('temp_difference_threshold') | float }}"
+      window_open: "{{ expand(input('window_sensors')) | selectattr('state', 'eq', 'on') | list | count > 0 }}"
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ inside_temp > preferred_temp + threshold and not window_open }}"
+        sequence:
+          - service: notify.mobile_app_{{ input('notify_device') }}
+            data:
+              message: "The room is too hot! Open the windows to cool it down."
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.last_notification_temp
+            data:
+              value: "{{ inside_temp }}"
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.last_action
+            data:
+              value: "open_window"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ inside_temp < preferred_temp - threshold and window_open }}"
+        sequence:
+          - service: notify.mobile_app_{{ input('notify_device') }}
+            data:
+              message: "The room is getting cold! Close the windows to retain heat."
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.last_notification_temp
+            data:
+              value: "{{ inside_temp }}"
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.last_action
+            data:
+              value: "close_window"
+
+mode: single
