@@ -64,33 +64,33 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {% set inside_temp = states('sensor.' ~ (input('inside_temp_sensor')).split('.')[1]) | float %}
-      {% set outside_temp = states('sensor.' ~ (input('outside_temp_sensor')).split('.')[1]) | float %}
-      {% set preferred_temp = input('preferred_inside_temp') | float %}
-      {% set threshold = input('temp_difference_threshold') | float %}
+      {% set inside_temp = states(!input 'inside_temp_sensor') | float %}
+      {% set outside_temp = states(!input 'outside_temp_sensor') | float %}
+      {% set preferred_temp = !input 'preferred_inside_temp' | float %}
+      {% set threshold = !input 'temp_difference_threshold' | float %}
 
       {% set temp_diff = (inside_temp - states('input_number.last_notification_temp') | float) | abs %}
       {% set notify_threshold = 0.5 %}
 
       temp_diff >= notify_threshold and (
-        (inside_temp > preferred_temp + threshold and is_state('last_action', 'close_window')) or 
-        (inside_temp < preferred_temp - threshold and is_state('last_action', 'open_window'))
+        (inside_temp > preferred_temp + threshold and is_state('input_text.last_action', 'close_window')) or 
+        (inside_temp < preferred_temp - threshold and is_state('input_text.last_action', 'open_window'))
       )
 
 action:
   - variables:
-      inside_temp: "{{ states('sensor.' ~ (input('inside_temp_sensor')).split('.')[1]) | float }}"
-      outside_temp: "{{ states('sensor.' ~ (input('outside_temp_sensor')).split('.')[1]) | float }}"
-      preferred_temp: "{{ input('preferred_inside_temp') | float }}"
-      threshold: "{{ input('temp_difference_threshold') | float }}"
-      window_open: "{{ expand(input('window_sensors')) | selectattr('state', 'eq', 'on') | list | count > 0 }}"
+      inside_temp: "{{ states(!input 'inside_temp_sensor') | float }}"
+      outside_temp: "{{ states(!input 'outside_temp_sensor') | float }}"
+      preferred_temp: "{{ !input 'preferred_inside_temp' | float }}"
+      threshold: "{{ !input 'temp_difference_threshold' | float }}"
+      window_open: "{{ expand(!input 'window_sensors') | selectattr('state', 'eq', 'on') | list | count > 0 }}"
 
   - choose:
       - conditions:
           - condition: template
             value_template: "{{ inside_temp > preferred_temp + threshold and not window_open }}"
         sequence:
-          - service: notify.mobile_app_{{ input('notify_device') }}
+          - service: notify.mobile_app_{{ !input 'notify_device' }}
             data:
               message: "The room is too hot! Open the windows to cool it down."
           - service: input_number.set_value
@@ -108,7 +108,7 @@ action:
           - condition: template
             value_template: "{{ inside_temp < preferred_temp - threshold and window_open }}"
         sequence:
-          - service: notify.mobile_app_{{ input('notify_device') }}
+          - service: notify.mobile_app_{{ !input 'notify_device' }}
             data:
               message: "The room is getting cold! Close the windows to retain heat."
           - service: input_number.set_value
