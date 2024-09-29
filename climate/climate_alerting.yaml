@@ -23,7 +23,7 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-          device_class: window
+          device_class: opening
           multiple: true
     notify_device:
       name: Device to Notify
