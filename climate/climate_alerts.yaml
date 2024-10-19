@@ -32,7 +32,6 @@ blueprint:
         target:
           entity:
             domain: binary_sensor
-            device_class: opening
 
     temperature_threshold:
       name: Indoor Temperature Threshold
