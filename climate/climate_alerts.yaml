@@ -2,10 +2,10 @@ blueprint:
   name: Notification for Open Window and Low Temperature
   description: |
     This blueprint triggers a notification when:
-    - The indoor temperature falls below the specified threshold.
+    - The indoor temperature falls below a specified threshold.
     - At least one window is open (among multiple selected window sensors).
     - The outdoor temperature is lower than the indoor temperature.
-    Use this automation to stay informed and avoid unnecessary energy loss.
+    Use this to stay informed and avoid unnecessary energy loss.
 
   domain: automation
 
@@ -31,7 +31,7 @@ blueprint:
         target:
           entity:
             domain: binary_sensor
-            device_class: opening
+            device_class: window
 
     temperature_threshold:
       name: Indoor Temperature Threshold
@@ -55,18 +55,18 @@ condition:
 
   - condition: template
     value_template: >
-      {{ states(!input.outside_temperature_sensor) | float < states(!input.inside_temperature_sensor) | float }}
+      {{ states(input.outside_temperature_sensor.entity_id) | float < states(input.inside_temperature_sensor.entity_id) | float }}
 
   - condition: template
     value_template: >
-      {{ expand(!input.window_sensors) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand(input.window_sensors.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
 
 action:
   - service: persistent_notification.create
     data:
       title: "Warning: Open Window and Cold Inside!"
       message: >
-        The indoor temperature is {{ states(!input.inside_temperature_sensor) }}°C,
+        The indoor temperature is {{ states(input.inside_temperature_sensor.entity_id) }}°C,
         at least one window is open, and it's even colder outside!
 
 mode: single
