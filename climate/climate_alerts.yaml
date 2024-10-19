@@ -26,7 +26,8 @@ blueprint:
 
     window_sensors:
       name: Window Sensors
-      description: Select one or more binary sensors monitoring window states. The notification will trigger if any of these windows are open.
+      description: Select one or more binary sensors monitoring window states. 
+                   The notification will trigger if any of these windows are open.
       selector:
         target:
           entity:
@@ -35,7 +36,8 @@ blueprint:
 
     temperature_threshold:
       name: Indoor Temperature Threshold
-      description: If the indoor temperature falls below this value, the notification will trigger (if other conditions are also met).
+      description: If the indoor temperature falls below this value, 
+                   the notification will trigger (if other conditions are also met).
       default: 18
       selector:
         number:
@@ -55,18 +57,20 @@ condition:
 
   - condition: template
     value_template: >
-      {{ states(input.outside_temperature_sensor.entity_id) | float < states(input.inside_temperature_sensor.entity_id) | float }}
+      {{ states(!input.outside_temperature_sensor) | float 
+         < states(!input.inside_temperature_sensor) | float }}
 
   - condition: template
     value_template: >
-      {{ expand(input.window_sensors.entity_id) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand(!input.window_sensors) | selectattr('state', 'eq', 'on') | list | length > 0 }}
 
 action:
   - service: persistent_notification.create
     data:
       title: "Warning: Open Window and Cold Inside!"
       message: >
-        The indoor temperature is {{ states(input.inside_temperature_sensor.entity_id) }}°C,
+        The indoor temperature is 
+        {{ states(!input.inside_temperature_sensor) }}°C,
         at least one window is open, and it's even colder outside!
 
 mode: single
