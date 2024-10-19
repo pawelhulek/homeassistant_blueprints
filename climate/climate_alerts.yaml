@@ -56,12 +56,12 @@ condition:
 
   - condition: template
     value_template: >
-      {{ states(!input.outside_temperature_sensor) | float 
-         < states(!input.inside_temperature_sensor) | float }}
+      {{ states(states('input.outside_temperature_sensor')) | float 
+         < states(states('input.inside_temperature_sensor')) | float }}
 
   - condition: template
     value_template: >
-      {{ expand(!input.window_sensors) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand(states('input.window_sensors')) | selectattr('state', 'eq', 'on') | list | length > 0 }}
 
 action:
   - service: persistent_notification.create
@@ -69,7 +69,7 @@ action:
       title: "Warning: Open Window and Cold Inside!"
       message: >
         The indoor temperature is 
-        {{ states(!input.inside_temperature_sensor) }}°C,
+        {{ states(states('input.inside_temperature_sensor')) }}°C,
         at least one window is open, and it's even colder outside!
 
 mode: single
