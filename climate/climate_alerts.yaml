@@ -3,7 +3,7 @@ blueprint:
   description: |
     This blueprint triggers a notification when:
     - The indoor temperature falls below a specified threshold.
-    - At least one window is open (among multiple selected window sensors).
+    - At least one window (or opening sensor) is open.
     - The outdoor temperature is lower than the indoor temperature.
     Use this to stay informed and avoid unnecessary energy loss.
 
@@ -25,13 +25,14 @@ blueprint:
           domain: sensor
 
     window_sensors:
-      name: Window Sensors
-      description: Select one or more binary sensors monitoring window states. 
-                   The notification will trigger if any of these windows are open.
+      name: Window or Opening Sensors
+      description: Select one or more binary sensors monitoring windows or other openings. 
+                   The notification will trigger if any of these are open.
       selector:
         target:
           entity:
             domain: binary_sensor
+            device_class: opening
 
     temperature_threshold:
       name: Indoor Temperature Threshold
@@ -56,12 +57,12 @@ condition:
 
   - condition: template
     value_template: >
-      {{ states(states('input.outside_temperature_sensor')) | float 
-         < states(states('input.inside_temperature_sensor')) | float }}
+      {{ states(!input.outside_temperature_sensor) | float 
+         < states(!input.inside_temperature_sensor) | float }}
 
   - condition: template
     value_template: >
-      {{ expand(states('input.window_sensors')) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand(!input.window_sensors) | selectattr('state', 'eq', 'on') | list | length > 0 }}
 
 action:
   - service: persistent_notification.create
@@ -69,7 +70,7 @@ action:
       title: "Warning: Open Window and Cold Inside!"
       message: >
         The indoor temperature is 
-        {{ states(states('input.inside_temperature_sensor')) }}°C,
-        at least one window is open, and it's even colder outside!
+        {{ states(!input.inside_temperature_sensor) }}°C,
+        at least one window or opening is open, and it's even colder outside!
 
 mode: single
