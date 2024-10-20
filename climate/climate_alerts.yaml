@@ -17,13 +17,6 @@ blueprint:
         entity:
           domain: sensor
 
-    outside_temperature_sensor:
-      name: Outdoor Temperature Sensor
-      description: Select the sensor that monitors outdoor temperature.
-      selector:
-        entity:
-          domain: sensor
-
     window_sensors:
       name: Window or Opening Sensors
       description: Select one or more binary sensors monitoring windows or other openings. 
@@ -54,12 +47,6 @@ condition:
   - condition: numeric_state
     entity_id: !input inside_temperature_sensor
     below: !input temperature_threshold
-
-  - condition: template
-    value_template: >
-      {% set outside_temp = states(input.outside_temperature_sensor.entity_id) | float %}
-      {% set inside_temp = states(input.inside_temperature_sensor.entity_id) | float %}
-      {{ outside_temp < inside_temp }}
 
   - condition: template
     value_template: >
