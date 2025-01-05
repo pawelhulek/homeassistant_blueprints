@@ -47,10 +47,13 @@ condition:
   - condition: numeric_state
     entity_id: !input inside_temperature_sensor
     below: !input temperature_threshold
-
+    
   - condition: template
     value_template: >
-      {{ expand( ( !input window_sensors ) | list ) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand( states | selectattr('entity_id', 'in', !input window_sensors) ) 
+         | selectattr('state', 'eq', 'on') 
+         | list 
+         | length > 0 }}
       
 action:
   - service: persistent_notification.create
