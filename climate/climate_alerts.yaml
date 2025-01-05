@@ -50,7 +50,7 @@ condition:
 
   - condition: template
     value_template: >
-      {{ expand(!input window_sensors) | selectattr('state', 'eq', 'on') | list | length > 0 }}
+      {{ expand( ( !input window_sensors ) | list ) | selectattr('state', 'eq', 'on') | list | length > 0 }}
       
 action:
   - service: persistent_notification.create
