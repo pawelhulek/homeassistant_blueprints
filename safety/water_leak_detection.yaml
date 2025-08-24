@@ -1,0 +1,57 @@
+blueprint:
+  name: Water leak detection
+  description: >
+    Sends a notification when any selected water leak sensor is triggered.
+    Optionally sends a recovery notification when leak is cleared.
+  domain: automation
+  input:
+    water_sensors:
+      name: Water leak sensors
+      description: Select one or more leak detectors (binary_sensor)
+      selector:
+        entity:
+          domain: binary_sensor
+          multiple: true
+    notify_device:
+      name: Mobile device
+      description: Device to receive mobile notifications
+      selector:
+        device:
+          integration: mobile_app
+    send_recovery:
+      name: Send recovery notification
+      description: Send a notification when leak is cleared
+      default: true
+      selector:
+        boolean: {}
+
+mode: parallel
+
+trigger:
+  - platform: state
+    entity_id: !input water_sensors
+    to: "on"
+  - platform: state
+    entity_id: !input water_sensors
+    to: "off"
+
+action:
+  - choose:
+      - conditions: "{{ trigger.to_state.state == 'on' }}"
+        sequence:
+          - device_id: !input notify_device
+            domain: mobile_app
+            type: notify
+            message: >
+              🚨 Water leak detected!
+              Sensor: {{ trigger.to_state.name }}
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.to_state.state == 'off' and (inputs.send_recovery | bool) }}"
+        sequence:
+          - device_id: !input notify_device
+            domain: mobile_app
+            type: notify
+            message: >
+              ✅ Leak cleared.
+              Sensor: {{ trigger.to_state.name }}
